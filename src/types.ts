@@ -16,9 +16,10 @@ export interface Producto {
 }
 
 export interface DenominacionesBilletes {
-  b5: number;   // 5 €
-  b10: number;  // 10 €
+  b50?: number; // 50 €
   b20: number;  // 20 €
+  b10: number;  // 10 €
+  b5: number;   // 5 €
 }
 
 export interface DenominacionesMonedas {

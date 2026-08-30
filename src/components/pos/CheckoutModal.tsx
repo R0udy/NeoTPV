@@ -160,14 +160,10 @@ export const CheckoutModal: React.FC = () => {
   const aplicarPresetImporte = (importe: number) => {
     setBilletesEntrantes({});
     setMonedasEntrantes({});
-    if (importe === 20) setBilletesEntrantes({ b20: 1 });
+    if (importe === 50) setBilletesEntrantes({ b50: 1 });
+    else if (importe === 20) setBilletesEntrantes({ b20: 1 });
     else if (importe === 10) setBilletesEntrantes({ b10: 1 });
     else if (importe === 5) setBilletesEntrantes({ b5: 1 });
-    else if (importe === 50) {
-      // 50€ no está en las denominaciones de caja de stand (<50), pero el cliente puede entregar un billete de 50€:
-      // Lo representamos en el desglose entrante
-      setBilletesEntrantes({ b20: 2, b10: 1 }); // Equivalente para registro en denominaciones de stand
-    }
   };
 
   const handleConfirmarCobro = async () => {
@@ -415,22 +411,29 @@ export const CheckoutModal: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={() => aplicarPresetImporte(5)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300 transition-colors touch-press cursor-pointer"
+                    >
+                      5 €
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => aplicarPresetImporte(10)}
-                      className="px-3 py-1.5 rounded-xl bg-[#E3F2FD] hover:bg-blue-100 text-[#1976D2] text-xs font-bold border border-blue-200 transition-colors touch-press cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 text-xs font-bold border border-rose-300 transition-colors touch-press cursor-pointer"
                     >
                       10 €
                     </button>
                     <button
                       type="button"
                       onClick={() => aplicarPresetImporte(20)}
-                      className="px-3 py-1.5 rounded-xl bg-[#E3F2FD] hover:bg-blue-100 text-[#1976D2] text-xs font-bold border border-blue-200 transition-colors touch-press cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-bold border border-sky-300 transition-colors touch-press cursor-pointer"
                     >
                       20 €
                     </button>
                     <button
                       type="button"
                       onClick={() => aplicarPresetImporte(50)}
-                      className="px-3 py-1.5 rounded-xl bg-[#E8F5E9] hover:bg-emerald-100 text-[#2E7D32] text-xs font-bold border border-emerald-200 transition-colors touch-press cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold border border-amber-300 transition-colors touch-press cursor-pointer"
                     >
                       50 €
                     </button>
@@ -459,8 +462,8 @@ export const CheckoutModal: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Botones de Billetes (< 50) */}
-                    <div className="grid grid-cols-3 gap-2 mb-2">
+                    {/* Botones de Billetes (50, 20, 10, 5) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                       {DENOMINACIONES_LIST.filter((d) => d.tipo === 'billete').map((d) => {
                         const count = (billetesEntrantes as any)[d.key] || 0;
                         return (

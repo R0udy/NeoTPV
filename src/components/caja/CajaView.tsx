@@ -26,6 +26,7 @@ export const CajaView: React.FC = () => {
 
   // Estado local para edición antes de guardar
   const [billetesLocales, setBilletesLocales] = useState<DenominacionesBilletes>({
+    b50: 0,
     b20: 0,
     b10: 0,
     b5: 0
@@ -49,6 +50,7 @@ export const CajaView: React.FC = () => {
   useEffect(() => {
     if (caja) {
       setBilletesLocales({
+        b50: caja.billetes?.b50 || 0,
         b20: caja.billetes?.b20 || 0,
         b10: caja.billetes?.b10 || 0,
         b5: caja.billetes?.b5 || 0
@@ -178,22 +180,23 @@ export const CajaView: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid de 2 Secciones: Billetes (<50€) y Monedas */}
+      {/* Grid de 2 Secciones: Billetes (50€, 20€, 10€, 5€) y Monedas */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
-        {/* ================= BILLETES (< 50 €: 20, 10, 5) ================= */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* ================= BILLETES (50 €, 20 €, 10 €, 5 €) ================= */}
+        <div className="lg:col-span-5 space-y-4">
           <div className="bg-white rounded-3xl p-5 shadow-xs border border-rose-100/80">
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Banknote className="w-5 h-5 text-blue-600" />
+                <Banknote className="w-5 h-5 text-amber-600" />
                 <h3 className="text-base font-bold font-display text-slate-800">
-                  Billetes (&lt; 50 €)
+                  Billetes (50 €, 20 €, 10 €, 5 €)
                 </h3>
               </div>
               <span className="text-xs font-semibold text-slate-400">
                 {formatearEuros(
-                  (billetesLocales.b20 || 0) * 20 +
+                  (billetesLocales.b50 || 0) * 50 +
+                    (billetesLocales.b20 || 0) * 20 +
                     (billetesLocales.b10 || 0) * 10 +
                     (billetesLocales.b5 || 0) * 5
                 )}
@@ -230,7 +233,7 @@ export const CajaView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleModificarCantidad(denom.id, 'billete', -1)}
-                        className="w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-slate-800 font-extrabold text-base flex items-center justify-center shadow-xs touch-press"
+                        className="w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-slate-800 font-extrabold text-base flex items-center justify-center shadow-xs touch-press cursor-pointer"
                       >
                         -
                       </button>
@@ -244,7 +247,7 @@ export const CajaView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleModificarCantidad(denom.id, 'billete', 1)}
-                        className="w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-slate-800 font-extrabold text-base flex items-center justify-center shadow-xs touch-press"
+                        className="w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-slate-800 font-extrabold text-base flex items-center justify-center shadow-xs touch-press cursor-pointer"
                       >
                         +
                       </button>
@@ -255,19 +258,19 @@ export const CajaView: React.FC = () => {
             </div>
 
             {/* Aviso informativo de cambio de billetes */}
-            <div className="mt-4 p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-xs text-blue-800 space-y-1">
+            <div className="mt-4 p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs text-amber-900 space-y-1">
               <p className="font-semibold flex items-center gap-1">
-                <HelpCircle className="w-3.5 h-3.5" /> Denominaciones de stand
+                <HelpCircle className="w-3.5 h-3.5 text-amber-700" /> Control de efectivo en stand
               </p>
-              <p className="text-[11px] text-blue-700">
-                Por seguridad en eventos públicos, la caja solo gestiona billetes de hasta 20 €.
+              <p className="text-[11px] text-amber-800">
+                Gestión completa de billetes de euro (50 €, 20 €, 10 €, 5 €) para cobros y cálculo inteligente de cambio.
               </p>
             </div>
           </div>
         </div>
 
         {/* ================= MONEDAS (2€, 1€, 50c, 20c, 10c, 5c, 2c, 1c) ================= */}
-        <div className="lg:col-span-8 space-y-4">
+        <div className="lg:col-span-7 space-y-4">
           <div className="bg-white rounded-3xl p-5 shadow-xs border border-rose-100/80">
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">

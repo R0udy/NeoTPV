@@ -18,14 +18,15 @@ export interface DenominacionInfo {
 }
 
 export const DENOMINACIONES_LIST: DenominacionInfo[] = [
-  // Billetes (< 50 €)
-  { id: 'b20', tipo: 'billete', nombre: '20 €', valorEuros: 20, valorCentimos: 2000, key: 'b20', colorClase: 'bg-blue-100 border-blue-300 text-blue-800', badgeClase: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { id: 'b10', tipo: 'billete', nombre: '10 €', valorEuros: 10, valorCentimos: 1000, key: 'b10', colorClase: 'bg-rose-100 border-rose-300 text-rose-800', badgeClase: 'bg-rose-50 text-rose-700 border-rose-200' },
-  { id: 'b5',  tipo: 'billete', nombre: '5 €',  valorEuros: 5,  valorCentimos: 500,  key: 'b5',  colorClase: 'bg-emerald-100 border-emerald-300 text-emerald-800', badgeClase: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  // Billetes (50 €, 20 €, 10 €, 5 €) con colores oficiales de billetes de Euro
+  { id: 'b50', tipo: 'billete', nombre: '50 €', valorEuros: 50, valorCentimos: 5000, key: 'b50', colorClase: 'bg-amber-100 border-amber-300 text-amber-900', badgeClase: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { id: 'b20', tipo: 'billete', nombre: '20 €', valorEuros: 20, valorCentimos: 2000, key: 'b20', colorClase: 'bg-sky-100 border-sky-300 text-sky-900', badgeClase: 'bg-sky-50 text-sky-800 border-sky-200' },
+  { id: 'b10', tipo: 'billete', nombre: '10 €', valorEuros: 10, valorCentimos: 1000, key: 'b10', colorClase: 'bg-rose-100 border-rose-300 text-rose-900', badgeClase: 'bg-rose-50 text-rose-800 border-rose-200' },
+  { id: 'b5',  tipo: 'billete', nombre: '5 €',  valorEuros: 5,  valorCentimos: 500,  key: 'b5',  colorClase: 'bg-emerald-100 border-emerald-300 text-emerald-900', badgeClase: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
   
   // Monedas
-  { id: 'm200', tipo: 'moneda', nombre: '2 €',   valorEuros: 2.00, valorCentimos: 200, key: 'm200', colorClase: 'bg-amber-100 border-amber-300 text-amber-800', badgeClase: 'bg-amber-50 text-amber-800 border-amber-200' },
-  { id: 'm100', tipo: 'moneda', nombre: '1 €',   valorEuros: 1.00, valorCentimos: 100, key: 'm100', colorClase: 'bg-yellow-100 border-yellow-300 text-yellow-800', badgeClase: 'bg-yellow-50 text-yellow-800 border-yellow-200' },
+  { id: 'm200', tipo: 'moneda', nombre: '2 €',   valorEuros: 2.00, valorCentimos: 200, key: 'm200', colorClase: 'bg-slate-100 border-amber-300 text-slate-800', badgeClase: 'bg-slate-50 text-slate-800 border-slate-300' },
+  { id: 'm100', tipo: 'moneda', nombre: '1 €',   valorEuros: 1.00, valorCentimos: 100, key: 'm100', colorClase: 'bg-yellow-50 border-slate-300 text-slate-800', badgeClase: 'bg-yellow-50 text-slate-800 border-yellow-200' },
   { id: 'm50',  tipo: 'moneda', nombre: '50 c',  valorEuros: 0.50, valorCentimos: 50,  key: 'm50',  colorClase: 'bg-amber-50 border-amber-200 text-amber-900', badgeClase: 'bg-amber-100/70 text-amber-900 border-amber-300' },
   { id: 'm20',  tipo: 'moneda', nombre: '20 c',  valorEuros: 0.20, valorCentimos: 20,  key: 'm20',  colorClase: 'bg-orange-50 border-orange-200 text-orange-900', badgeClase: 'bg-orange-100/70 text-orange-900 border-orange-300' },
   { id: 'm10',  tipo: 'moneda', nombre: '10 c',  valorEuros: 0.10, valorCentimos: 10,  key: 'm10',  colorClase: 'bg-stone-100 border-stone-200 text-stone-800', badgeClase: 'bg-stone-50 text-stone-700 border-stone-200' },
@@ -36,6 +37,7 @@ export const DENOMINACIONES_LIST: DenominacionInfo[] = [
 
 export const ESTADO_CAJA_INICIAL: EstadoCaja = {
   billetes: {
+    b50: 1,  // 50 €
     b20: 3,  // 60 €
     b10: 6,  // 60 €
     b5: 8    // 40 €
@@ -68,6 +70,7 @@ export function calcularTotalCaja(estado: EstadoCaja): number {
   let totalCentimos = 0;
   
   if (estado.billetes) {
+    totalCentimos += (estado.billetes.b50 || 0) * 5000;
     totalCentimos += (estado.billetes.b20 || 0) * 2000;
     totalCentimos += (estado.billetes.b10 || 0) * 1000;
     totalCentimos += (estado.billetes.b5 || 0) * 500;
@@ -92,6 +95,7 @@ export function calcularTotalDesglose(desglose: DesgloseEfectivo | undefined): n
   let totalCentimos = 0;
   
   if (desglose.billetes) {
+    totalCentimos += (desglose.billetes.b50 || 0) * 5000;
     totalCentimos += (desglose.billetes.b20 || 0) * 2000;
     totalCentimos += (desglose.billetes.b10 || 0) * 1000;
     totalCentimos += (desglose.billetes.b5 || 0) * 500;
@@ -132,6 +136,7 @@ export function calcularVueltas(
 
   // Stock disponible por denominación
   const stockDisponible: Record<string, number> = {
+    b50: estadoCaja.billetes?.b50 || 0,
     b20: estadoCaja.billetes?.b20 || 0,
     b10: estadoCaja.billetes?.b10 || 0,
     b5: estadoCaja.billetes?.b5 || 0,
@@ -152,6 +157,7 @@ export function calcularVueltas(
   if (resultado.exito) {
     const desglose: DesgloseEfectivo = {
       billetes: {
+        b50: resultado.usados.b50 || 0,
         b20: resultado.usados.b20 || 0,
         b10: resultado.usados.b10 || 0,
         b5: resultado.usados.b5 || 0
@@ -182,6 +188,7 @@ export function calcularVueltas(
 
     const desgloseIncompleto: DesgloseEfectivo = {
       billetes: {
+        b50: resultado.usados.b50 || 0,
         b20: resultado.usados.b20 || 0,
         b10: resultado.usados.b10 || 0,
         b5: resultado.usados.b5 || 0
@@ -283,6 +290,7 @@ export function aplicarEfectivoACaja(
 ): EstadoCaja {
   const nuevaCaja: EstadoCaja = {
     billetes: {
+      b50: Math.max(0, (cajaActual.billetes?.b50 || 0) + (entrante?.billetes?.b50 || 0) - (vueltas?.billetes?.b50 || 0)),
       b20: Math.max(0, (cajaActual.billetes?.b20 || 0) + (entrante?.billetes?.b20 || 0) - (vueltas?.billetes?.b20 || 0)),
       b10: Math.max(0, (cajaActual.billetes?.b10 || 0) + (entrante?.billetes?.b10 || 0) - (vueltas?.billetes?.b10 || 0)),
       b5:  Math.max(0, (cajaActual.billetes?.b5  || 0) + (entrante?.billetes?.b5  || 0) - (vueltas?.billetes?.b5  || 0))
@@ -315,6 +323,7 @@ export function revertirEfectivoDeCaja(
   // O revertimos exactamente las denominaciones si es posible
   const nuevaCaja: EstadoCaja = {
     billetes: {
+      b50: Math.max(0, (cajaActual.billetes?.b50 || 0) - (entrante?.billetes?.b50 || 0) + (vueltas?.billetes?.b50 || 0)),
       b20: Math.max(0, (cajaActual.billetes?.b20 || 0) - (entrante?.billetes?.b20 || 0) + (vueltas?.billetes?.b20 || 0)),
       b10: Math.max(0, (cajaActual.billetes?.b10 || 0) - (entrante?.billetes?.b10 || 0) + (vueltas?.billetes?.b10 || 0)),
       b5:  Math.max(0, (cajaActual.billetes?.b5  || 0) - (entrante?.billetes?.b5  || 0) + (vueltas?.billetes?.b5  || 0))
