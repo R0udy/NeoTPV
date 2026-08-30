@@ -1,0 +1,6 @@
+{
+  "name": "TPV Stand Eventos",
+  "description": "Sistema de TPV y gestión para stand de eventos de joyería y merchandising anime/K-pop.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
