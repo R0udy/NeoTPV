@@ -2,22 +2,22 @@ import {
   DataProvider,
   Producto,
   Venta,
-  EstadoCaja,
+  Evento,
   AppSettings
 } from '../types';
 import {
   INITIAL_PRODUCTS,
+  INITIAL_EVENTS,
   INITIAL_SALES,
   INITIAL_SETTINGS
 } from './mockSeedData';
-import { ESTADO_CAJA_INICIAL } from '../utils/cashUtils';
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'tpv_stand_mock_products_v1',
-  SALES: 'tpv_stand_mock_sales_v1',
-  CASH: 'tpv_stand_mock_cash_v1',
-  SETTINGS: 'tpv_stand_mock_settings_v1',
-  INITIALIZED: 'tpv_stand_mock_initialized_v1'
+  PRODUCTS: 'tpv_eventos_mock_products_v2',
+  EVENTS: 'tpv_eventos_mock_events_v2',
+  SALES: 'tpv_eventos_mock_sales_v2',
+  SETTINGS: 'tpv_eventos_mock_settings_v2',
+  INITIALIZED: 'tpv_eventos_mock_initialized_v2'
 } as const;
 
 export class MockProvider implements DataProvider {
@@ -33,13 +33,13 @@ export class MockProvider implements DataProvider {
 
   public resetToDefaults(): void {
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(INITIAL_EVENTS));
     localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(INITIAL_SALES));
-    localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(ESTADO_CAJA_INICIAL));
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(INITIAL_SETTINGS));
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
   }
 
-  // --- Productos ---
+  // --- Productos (Inventario General) ---
   async getProducts(): Promise<Producto[]> {
     this.ensureInitialized();
     const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
@@ -63,11 +63,49 @@ export class MockProvider implements DataProvider {
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(filtered));
   }
 
+  // --- Eventos ---
+  async getEvents(): Promise<Evento[]> {
+    this.ensureInitialized();
+    const data = localStorage.getItem(STORAGE_KEYS.EVENTS);
+    const events: Evento[] = data ? JSON.parse(data) : [];
+    // Ordenar activos primero y por fecha descendente
+    return events.sort((a, b) => {
+      if (a.estado === 'activo' && b.estado === 'cerrado') return -1;
+      if (a.estado === 'cerrado' && b.estado === 'activo') return 1;
+      return new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime();
+    });
+  }
+
+  async getEventById(id: string): Promise<Evento | null> {
+    const events = await this.getEvents();
+    return events.find((e) => e.id === id) || null;
+  }
+
+  async saveEvent(evento: Evento): Promise<void> {
+    const events = await this.getEvents();
+    const index = events.findIndex((e) => e.id === evento.id);
+    if (index >= 0) {
+      events[index] = evento;
+    } else {
+      events.unshift(evento);
+    }
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+  }
+
+  async deleteEvent(eventoId: string): Promise<void> {
+    const events = await this.getEvents();
+    const filtered = events.filter((e) => e.id !== eventoId);
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(filtered));
+  }
+
   // --- Ventas ---
-  async getSales(): Promise<Venta[]> {
+  async getSales(eventoId?: string): Promise<Venta[]> {
     this.ensureInitialized();
     const data = localStorage.getItem(STORAGE_KEYS.SALES);
-    const sales: Venta[] = data ? JSON.parse(data) : [];
+    let sales: Venta[] = data ? JSON.parse(data) : [];
+    if (eventoId) {
+      sales = sales.filter((s) => s.eventoId === eventoId);
+    }
     // Ordenar de más reciente a más antigua
     return sales.sort((a, b) => b.timestamp - a.timestamp);
   }
@@ -87,17 +125,6 @@ export class MockProvider implements DataProvider {
     }
   }
 
-  // --- Estado Caja ---
-  async getCashState(): Promise<EstadoCaja> {
-    this.ensureInitialized();
-    const data = localStorage.getItem(STORAGE_KEYS.CASH);
-    return data ? JSON.parse(data) : ESTADO_CAJA_INICIAL;
-  }
-
-  async saveCashState(state: EstadoCaja): Promise<void> {
-    localStorage.setItem(STORAGE_KEYS.CASH, JSON.stringify(state));
-  }
-
   // --- Ajustes ---
   async getSettings(): Promise<AppSettings> {
     this.ensureInitialized();
@@ -113,3 +140,4 @@ export class MockProvider implements DataProvider {
     this.resetToDefaults();
   }
 }
+

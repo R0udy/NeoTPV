@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { AppSettings } from '../../types';
-import { isFirebaseConfigured } from '../../config/firebaseConfig';
+import { isFirebaseConfigured, testFirebaseConnection, firebaseConfig } from '../../config/firebaseConfig';
 import { onedriveConfig } from '../../config/onedriveConfig';
 import {
   Settings,
@@ -17,7 +17,11 @@ import {
   Store,
   ShieldCheck,
   ExternalLink,
-  Info
+  Info,
+  Activity,
+  RefreshCw,
+  HelpCircle,
+  Trash2,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -28,14 +32,40 @@ export const AdminView: React.FC = () => {
     alertas,
     isMockActive,
     setMockMode,
-    reiniciarDatosMock
+    reiniciarDatosMock,
+    purgarMockDeFirebase,
   } = useDataStore();
 
   const [nombreTienda, setNombreTienda] = useState(settings.nombreTienda || 'KiraKira Stand & Jewels');
-  const [nombreEvento, setNombreEvento] = useState(settings.nombreEvento || 'Japan Weekend Stand 42');
   const [umbralStock, setUmbralStock] = useState(settings.umbralStockBajo || 5);
   const [umbralCaja, setUmbralCaja] = useState(settings.umbralMonedasBajas || 5);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Estado del test de conexión a Firebase
+  const [isTestingFirebase, setIsTestingFirebase] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    code?: string;
+    details?: string;
+  } | null>(null);
+
+  const handleTestFirebase = async () => {
+    setIsTestingFirebase(true);
+    setTestResult(null);
+    try {
+      const res = await testFirebaseConnection();
+      setTestResult(res);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: 'Error inesperado al probar conexión',
+        details: err?.message || String(err),
+      });
+    } finally {
+      setIsTestingFirebase(false);
+    }
+  };
 
   const handleGuardarAjustes = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +73,6 @@ export const AdminView: React.FC = () => {
     const nuevos: AppSettings = {
       ...settings,
       nombreTienda,
-      nombreEvento,
       umbralStockBajo: Number(umbralStock),
       umbralMonedasBajas: Number(umbralCaja)
     };
@@ -202,17 +231,30 @@ export const AdminView: React.FC = () => {
             </div>
           </div>
 
-          {/* Botón para reiniciar catálogo mock */}
+          {/* Acciones del Modo Activo */}
           <div className="pt-1">
-            <button
-              type="button"
-              id="btn-reiniciar-mock"
-              onClick={reiniciarDatosMock}
-              className="w-full py-3 px-4 rounded-xl border border-[#F0EBE3] hover:bg-slate-100 active:scale-98 font-bold text-xs text-slate-700 transition-all flex items-center justify-center gap-2 touch-press cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4 text-[#2196F3]" />
-              <span>Restablecer Catálogo y Ventas Mock por Defecto</span>
-            </button>
+            {isMockActive ? (
+              <button
+                type="button"
+                id="btn-reiniciar-mock"
+                onClick={reiniciarDatosMock}
+                className="w-full py-3 px-4 rounded-xl border border-[#F0EBE3] hover:bg-slate-100 active:scale-98 font-bold text-xs text-slate-700 transition-all flex items-center justify-center gap-2 touch-press cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 text-[#2196F3]" />
+                <span>Restablecer Catálogo y Ventas Mock por Defecto</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                id="btn-purgar-mock-firebase"
+                onClick={purgarMockDeFirebase}
+                className="w-full py-3 px-4 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100 active:scale-98 font-bold text-xs text-rose-700 transition-all flex items-center justify-center gap-2 touch-press cursor-pointer"
+                title="Elimina cualquier referencia de productos o ventas de prueba que haya quedado guardada en Firestore"
+              >
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>Purgar Residuos Mockup de Firestore</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -234,18 +276,6 @@ export const AdminView: React.FC = () => {
                 type="text"
                 value={nombreTienda}
                 onChange={(e) => setNombreTienda(e.target.value)}
-                className="w-full px-3 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nombre del Evento / Salón
-              </label>
-              <input
-                type="text"
-                value={nombreEvento}
-                onChange={(e) => setNombreEvento(e.target.value)}
                 className="w-full px-3 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
               />
             </div>
@@ -295,45 +325,117 @@ export const AdminView: React.FC = () => {
       </div>
 
       {/* ================= SECCIÓN 3: ESTADO TÉCNICO DE INTEGRACIONES ================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Firebase */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#F0EBE3] shadow-xs space-y-2">
+        <div className="bg-white rounded-2xl p-5 border border-[#F0EBE3] shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-bold text-slate-800">Capa Firebase Firestore</span>
+              <Cloud className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-bold text-slate-800">Capa Firebase Firestore</span>
             </div>
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                 isFirebaseConfigured()
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-amber-100 text-amber-800'
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : 'bg-amber-100 text-amber-800 border border-amber-200'
               }`}
             >
-              {isFirebaseConfigured() ? 'Conectado' : 'Estructurado / Stub'}
+              {isFirebaseConfigured() ? 'Proyecto: ' + firebaseConfig.projectId : 'Sin Configurar'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            Archivo <code>src/config/firebaseConfig.ts</code> con patrón repositorio y TODOs listos
-            para producción en Vercel.
+
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Persistencia en tiempo real de productos, ventas, estado de caja y configuración en Firestore.
           </p>
+
+          {/* Botón de test de conexión en vivo */}
+          <div className="pt-2 space-y-2">
+            <button
+              type="button"
+              id="btn-test-firebase"
+              onClick={handleTestFirebase}
+              disabled={isTestingFirebase}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isTestingFirebase ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                  <span>Comprobando conexión con Firestore...</span>
+                </>
+              ) : (
+                <>
+                  <Activity className="w-4 h-4 text-emerald-400" />
+                  <span>Probar Conexión en Vivo con Firebase</span>
+                </>
+              )}
+            </button>
+
+            {/* Resultado del test */}
+            {testResult && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
+                  testResult.success
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                    : 'bg-rose-50 border-rose-200 text-rose-950'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  {testResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{testResult.message}</span>
+                </div>
+
+                {testResult.details && (
+                  <p className="text-[11px] font-mono opacity-80 pl-6 break-all">
+                    Detalles: {testResult.details}
+                  </p>
+                )}
+
+                {!testResult.success && testResult.code === 'permission-denied' && (
+                  <div className="mt-2 p-2 rounded-lg bg-white/80 border border-rose-200 text-[11px] text-slate-700 space-y-1">
+                    <p className="font-bold text-rose-800">💡 Cómo solucionarlo en 1 minuto:</p>
+                    <p>1. Abre <a href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/firestore/rules`} target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">Firebase Console &gt; Firestore &gt; Reglas</a>.</p>
+                    <p>2. Cambia la regla a: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-rose-900">allow read, write: if true;</code></p>
+                    <p>3. Pulsa "Publicar" (Publish) y vuelve a pulsar "Probar Conexión".</p>
+                  </div>
+                )}
+
+                {!testResult.success && (testResult.code === 'not-found' || testResult.code === 'unavailable') && (
+                  <div className="mt-2 p-2 rounded-lg bg-white/80 border border-rose-200 text-[11px] text-slate-700 space-y-1">
+                    <p className="font-bold text-amber-800">💡 Base de datos no creada:</p>
+                    <p>Abre <a href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/firestore`} target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">Firebase Console &gt; Firestore Database</a> y haz clic en <strong>"Crear base de datos"</strong> en modo de prueba.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* OneDrive */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#F0EBE3] shadow-xs space-y-2">
+        <div className="bg-white rounded-2xl p-5 border border-[#F0EBE3] shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Cloud className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-bold text-slate-800">OneDrive / Microsoft Graph</span>
+              <Cloud className="w-5 h-5 text-blue-500" />
+              <span className="text-sm font-bold text-slate-800">OneDrive / Galería Visual</span>
             </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-              Estructurado / URLs
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+              Transformador de URLs
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            Archivo <code>src/config/onedriveConfig.ts</code> con soporte de URLs directas y stubs
-            preparados para Microsoft Graph.
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Soporta enlaces compartidos de fotos de OneDrive (transforma <code>1drv.ms</code> a descarga directa para las fichas de producto).
           </p>
+          <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-900 space-y-1">
+            <p className="font-semibold flex items-center gap-1.5">
+              <HelpCircle className="w-4 h-4 text-blue-600" /> Fotos de productos
+            </p>
+            <p className="text-[11px] text-blue-800">
+              Pega cualquier enlace compartido de OneDrive al crear o editar un producto y el visor lo mostrará automáticamente.
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -2,6 +2,8 @@ export type MetodoPago = 'transferencia_bizum' | 'tpv' | 'efectivo';
 
 export type EstadoVenta = 'registrada' | 'devuelta' | 'modificada';
 
+export type EstadoEvento = 'activo' | 'cerrado';
+
 export interface Producto {
   id: string;
   imagenUrl: string; // URL de OneDrive o placeholder
@@ -10,7 +12,7 @@ export interface Producto {
   descripcion: string;
   precioCoste: number;
   precioVenta: number;
-  stock: number;
+  stock: number; // Stock general centralizado
   etiquetas: string[]; // Máximo 3
   fechaCreacion?: string;
 }
@@ -40,6 +42,34 @@ export interface EstadoCaja {
   notas?: string;
 }
 
+export interface ArqueoCierre {
+  fecha: string;
+  hora: string;
+  timestamp: number;
+  cajaFinal: EstadoCaja;
+  totalTeorico: number;
+  totalReal: number;
+  diferencia: number;
+  totalRecaudadoEfectivo: number;
+  totalRecaudadoTPV: number;
+  totalRecaudadoBizum: number;
+  totalVentas: number;
+  notas?: string;
+}
+
+export interface Evento {
+  id: string;
+  nombre: string; // Nombre del evento (ej: "Japan Weekend Madrid 2026")
+  fechaInicio: string; // YYYY-MM-DD
+  fechaFin?: string;   // YYYY-MM-DD (al cerrarse)
+  estado: EstadoEvento; // 'activo' | 'cerrado'
+  cajaInicial: EstadoCaja; // Cantidad y desglose de apertura
+  cajaActual: EstadoCaja;  // Estado vivo de la caja durante el evento
+  arqueoCierre?: ArqueoCierre; // Datos del cierre al finalizar
+  notas?: string;
+  fechaCreacion?: string;
+}
+
 export interface LineaVenta {
   productId: string;
   nombreCorto: string;
@@ -56,6 +86,8 @@ export interface DesgloseEfectivo {
 
 export interface Venta {
   id: string;
+  eventoId: string; // ID del evento al que pertenece la venta
+  nombreEvento?: string; // Nombre del evento para trazabilidad
   lineas: LineaVenta[];
   total: number;
   metodoPago: MetodoPago;
@@ -66,7 +98,6 @@ export interface Venta {
   timestamp: number;
   estado: EstadoVenta;
   motivoDevolucion?: string;
-  evento?: string;
 }
 
 export interface TicketLinea {
@@ -79,7 +110,6 @@ export interface AppSettings {
   mockDataEnabled: boolean;
   umbralStockBajo: number;
   umbralMonedasBajas: number;
-  nombreEvento: string;
   nombreTienda: string;
   autoImprimirTicket: boolean;
 }
@@ -105,19 +135,28 @@ export interface ResultadoCalculoVueltas {
 }
 
 export interface DataProvider {
+  // Inventario General
   getProducts(): Promise<Producto[]>;
   saveProduct(product: Producto): Promise<void>;
   deleteProduct(productId: string): Promise<void>;
   
-  getSales(): Promise<Venta[]>;
+  // Eventos
+  getEvents(): Promise<Evento[]>;
+  getEventById?(id: string): Promise<Evento | null>;
+  saveEvent(evento: Evento): Promise<void>;
+  deleteEvent?(eventoId: string): Promise<void>;
+
+  // Ventas
+  getSales(eventoId?: string): Promise<Venta[]>;
   saveSale(sale: Venta): Promise<void>;
   updateSale(sale: Venta): Promise<void>;
   
-  getCashState(): Promise<EstadoCaja>;
-  saveCashState(state: EstadoCaja): Promise<void>;
-  
+  // Configuración
   getSettings(): Promise<AppSettings>;
   saveSettings(settings: AppSettings): Promise<void>;
   
+  // Mocks & Firebase utilities
   resetMockData?(): Promise<void>;
+  purgeMockDataFromFirestore?(): Promise<{ productosEliminados: number; ventasEliminadas: number; eventosEliminados?: number }>;
 }
+

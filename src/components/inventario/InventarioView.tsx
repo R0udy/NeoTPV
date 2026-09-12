@@ -30,11 +30,14 @@ export const InventarioView: React.FC = () => {
     setFiltroEtiqueta,
     orden,
     setOrden,
-    settings
+    settings,
+    isMockActive,
   } = useDataStore();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [productoAEliminar, setProductoAEliminar] = useState<Producto | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [vistaModo, setVistaModo] = useState<'grid' | 'table'>('grid');
 
   // Todas las etiquetas únicas
@@ -85,9 +88,20 @@ export const InventarioView: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleEliminar = async (prod: Producto) => {
-    if (window.confirm(`¿Seguro que deseas eliminar "${prod.nombreCorto}" del catálogo?`)) {
-      await eliminarProducto(prod.id);
+  const handleEliminar = (prod: Producto) => {
+    setProductoAEliminar(prod);
+  };
+
+  const handleConfirmarEliminar = async () => {
+    if (!productoAEliminar) return;
+    setIsDeleting(true);
+    try {
+      await eliminarProducto(productoAEliminar.id);
+      setProductoAEliminar(null);
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -206,7 +220,7 @@ export const InventarioView: React.FC = () => {
         </div>
 
         {/* Etiquetas Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex flex-wrap items-center gap-1.5 pb-1">
           <button
             type="button"
             onClick={() => setFiltroEtiqueta(null)}
@@ -236,7 +250,39 @@ export const InventarioView: React.FC = () => {
       </div>
 
       {/* Renderizado en Cuadrícula o Tabla */}
-      {vistaModo === 'grid' ? (
+      {productosFiltrados.length === 0 ? (
+        <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-slate-200 shadow-xs space-y-4">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
+            <Package className="w-8 h-8" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-base font-bold text-slate-800">
+              {busqueda || filtroEtiqueta
+                ? 'No se encontraron productos con estos filtros'
+                : isMockActive
+                ? 'Catálogo de prueba local vacío'
+                : 'Catálogo de Firestore vacío'}
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {busqueda || filtroEtiqueta
+                ? 'Prueba a cambiar los términos de búsqueda o seleccionar otra etiqueta.'
+                : isMockActive
+                ? 'Puedes restablecer el catálogo de prueba desde el panel de Admin o crear uno nuevo.'
+                : 'Actualmente no hay productos registrados en tu base de datos real de Firestore. Haz clic en "Añadir Producto" para comenzar a poblar tu inventario.'}
+            </p>
+          </div>
+          {!busqueda && !filtroEtiqueta && (
+            <button
+              type="button"
+              onClick={handleCrearNuevo}
+              className="inline-flex items-center gap-2 py-3 px-6 rounded-2xl bg-gradient-to-r from-rose-500 to-purple-600 hover:from-rose-600 hover:to-purple-700 text-white font-bold text-xs shadow-md shadow-rose-200 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Añadir Primer Producto</span>
+            </button>
+          )}
+        </div>
+      ) : vistaModo === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {productosFiltrados.map((prod) => {
             const beneficio = prod.precioVenta - prod.precioCoste;
@@ -324,19 +370,24 @@ export const InventarioView: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      id={`btn-editar-prod-${prod.id}`}
                       onClick={() => handleEditar(prod)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 touch-press"
+                      className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 touch-press cursor-pointer"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-3.5 h-3.5 pointer-events-none" />
                       <span>Editar</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleEliminar(prod)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      id={`btn-eliminar-prod-${prod.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEliminar(prod);
+                      }}
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition-all touch-press cursor-pointer"
                       title="Eliminar producto"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 pointer-events-none" />
                     </button>
                   </div>
                 </div>
@@ -417,17 +468,24 @@ export const InventarioView: React.FC = () => {
                       <td className="py-3 px-4 text-right space-x-1">
                         <button
                           type="button"
+                          id={`btn-editar-prod-tabla-${prod.id}`}
                           onClick={() => handleEditar(prod)}
-                          className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:scale-95 rounded-lg transition-colors cursor-pointer"
+                          title="Editar producto"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-4 h-4 pointer-events-none" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleEliminar(prod)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          id={`btn-eliminar-prod-tabla-${prod.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEliminar(prod);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:scale-95 rounded-lg transition-colors cursor-pointer"
+                          title="Eliminar producto"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4 pointer-events-none" />
                         </button>
                       </td>
                     </tr>
@@ -445,6 +503,71 @@ export const InventarioView: React.FC = () => {
         productoEditar={productoSeleccionado}
         onClose={() => setModalOpen(false)}
       />
+
+      {/* Modal de Confirmación de Eliminación In-App */}
+      <AnimatePresence>
+        {productoAEliminar && (
+          <div
+            id="modal-confirmar-eliminar"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+            onClick={() => !isDeleting && setProductoAEliminar(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center space-y-4"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 mx-auto flex items-center justify-center shadow-xs">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-base font-bold text-slate-900">
+                  ¿Eliminar producto?
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  ¿Estás seguro de que deseas eliminar{' '}
+                  <strong className="text-slate-800 font-semibold">
+                    "{productoAEliminar.nombreCorto}"
+                  </strong>{' '}
+                  del catálogo? Esta acción no se puede deshacer.
+                </p>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  id="btn-cancelar-eliminar"
+                  disabled={isDeleting}
+                  onClick={() => setProductoAEliminar(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-700 font-bold text-xs transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  id="btn-confirmar-eliminar"
+                  disabled={isDeleting}
+                  onClick={handleConfirmarEliminar}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-98 text-white font-bold text-xs transition-all shadow-md shadow-rose-200 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Eliminando...</span>
+                    </>
+                  ) : (
+                    <span>Sí, eliminar</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -139,9 +139,9 @@ export const POSView: React.FC = () => {
                 {lineas.map((linea) => (
                   <motion.div
                     key={linea.producto.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10, transition: { duration: 0.15 } }}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12 } }}
                     className="p-3 bg-[#FDFBF7] hover:bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl flex items-center justify-between gap-2.5 transition-colors"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -326,7 +326,7 @@ export const POSView: React.FC = () => {
             </div>
 
             {/* Filtros de Etiquetas Rápidas (Pills) */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="flex flex-wrap items-center gap-2 pb-1">
               <button
                 type="button"
                 onClick={() => setFiltroEtiqueta(null)}

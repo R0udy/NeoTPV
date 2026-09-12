@@ -13,7 +13,8 @@ import {
   DENOMINACIONES_LIST,
   calcularVueltas,
   formatearEuros,
-  calcularTotalDesglose
+  calcularTotalDesglose,
+  ESTADO_CAJA_INICIAL
 } from '../../utils/cashUtils';
 import {
   X,
@@ -42,7 +43,9 @@ export const CheckoutModal: React.FC = () => {
     notaTicket
   } = usePOSStore();
 
-  const { caja, procesarCobro } = useDataStore();
+  const { eventos, eventoActivoId, procesarCobro } = useDataStore();
+  const eventoActivo = eventos.find((e) => e.id === eventoActivoId) || eventos.find((e) => e.estado === 'activo') || null;
+  const caja = eventoActivo ? eventoActivo.cajaActual : ESTADO_CAJA_INICIAL;
 
   const [metodoSeleccionado, setMetodoSeleccionado] = useState<MetodoPago>('efectivo');
   

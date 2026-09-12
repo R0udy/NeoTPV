@@ -1,5 +1,4 @@
-import { Producto, EstadoCaja, Venta, AppSettings } from '../types';
-import { ESTADO_CAJA_INICIAL } from '../utils/cashUtils';
+import { Producto, EstadoCaja, Venta, AppSettings, Evento } from '../types';
 
 export const INITIAL_PRODUCTS: Producto[] = [
   {
@@ -114,9 +113,135 @@ export const INITIAL_PRODUCTS: Producto[] = [
   }
 ];
 
+const hoy = new Date().toISOString().split('T')[0];
+
+export const INITIAL_EVENTS: Evento[] = [
+  // 1. Evento Cerrado 1
+  {
+    id: 'evt-closed-01',
+    nombre: 'Salón del Manga de Barcelona 2025',
+    fechaInicio: '2025-11-01',
+    fechaFin: '2025-11-04',
+    estado: 'cerrado',
+    cajaInicial: {
+      billetes: { b50: 0, b20: 4, b10: 5, b5: 4 }, // 80 + 50 + 20 = 150€
+      monedas: { m200: 0, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 },
+      ultimaActualizacion: '2025-11-01T09:00:00.000Z'
+    },
+    cajaActual: {
+      billetes: { b50: 4, b20: 10, b10: 8, b5: 6 }, // 200 + 200 + 80 + 30 = 510€
+      monedas: { m200: 1, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 }, // 2€ = 512€
+      ultimaActualizacion: '2025-11-04T20:30:00.000Z'
+    },
+    arqueoCierre: {
+      fecha: '2025-11-04',
+      hora: '20:30:00',
+      timestamp: new Date('2025-11-04T20:30:00.000Z').getTime(),
+      cajaFinal: {
+        billetes: { b50: 4, b20: 10, b10: 8, b5: 6 },
+        monedas: { m200: 1, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 }
+      },
+      totalTeorico: 512.00,
+      totalReal: 512.00,
+      diferencia: 0.00,
+      totalRecaudadoEfectivo: 362.00,
+      totalRecaudadoTPV: 485.50,
+      totalRecaudadoBizum: 110.00,
+      totalVentas: 38,
+      notas: 'Cierre de feria exitoso. Caja perfectamente cuadrada sin descuadres.'
+    },
+    notas: 'Stand principal pasillo central.',
+    fechaCreacion: '2025-10-25'
+  },
+
+  // 2. Evento Cerrado 2
+  {
+    id: 'evt-closed-02',
+    nombre: 'Feria del Libro y Arte Madrid',
+    fechaInicio: '2026-05-20',
+    fechaFin: '2026-05-24',
+    estado: 'cerrado',
+    cajaInicial: {
+      billetes: { b50: 0, b20: 3, b10: 4, b5: 4 }, // 60 + 40 + 20 = 120€
+      monedas: { m200: 0, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 },
+      ultimaActualizacion: '2026-05-20T10:00:00.000Z'
+    },
+    cajaActual: {
+      billetes: { b50: 3, b20: 8, b10: 12, b5: 6 }, // 150 + 160 + 120 + 30 = 460€
+      monedas: { m200: 0, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 },
+      ultimaActualizacion: '2026-05-24T21:00:00.000Z'
+    },
+    arqueoCierre: {
+      fecha: '2026-05-24',
+      hora: '21:00:00',
+      timestamp: new Date('2026-05-24T21:00:00.000Z').getTime(),
+      cajaFinal: {
+        billetes: { b50: 3, b20: 8, b10: 12, b5: 6 },
+        monedas: { m200: 0, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 }
+      },
+      totalTeorico: 460.00,
+      totalReal: 460.00,
+      diferencia: 0.00,
+      totalRecaudadoEfectivo: 340.00,
+      totalRecaudadoTPV: 520.00,
+      totalRecaudadoBizum: 95.00,
+      totalVentas: 29,
+      notas: 'Arqueo final conforme al cierre de feria.'
+    },
+    notas: 'Sector ilustradores.',
+    fechaCreacion: '2026-05-15'
+  },
+
+  // 3. Evento Activo 1 (Con ventas registradas)
+  {
+    id: 'evt-active-01',
+    nombre: 'Japan Weekend Madrid 2026',
+    fechaInicio: hoy,
+    estado: 'activo',
+    cajaInicial: {
+      billetes: { b50: 0, b20: 4, b10: 4, b5: 4 }, // 80 + 40 + 20 = 140€
+      monedas: { m200: 0, m100: 0, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 },
+      ultimaActualizacion: `${hoy}T09:30:00.000Z`
+    },
+    cajaActual: {
+      // 140€ inicial + 22€ en efectivo de la venta ven-1001 (pagó 25€ con 1x20€, 1x5€ y vuelta de 3€ con 1x2€, 1x1€)
+      billetes: { b50: 0, b20: 5, b10: 4, b5: 5 }, // 100 + 40 + 25 = 165€
+      monedas: { m200: -1, m100: -1, m50: 0, m20: 0, m10: 0, m5: 0, m2: 0, m1: 0 }, // total neto 162€
+      ultimaActualizacion: `${hoy}T11:15:30.000Z`,
+      notas: 'Caja operativa del evento Japan Weekend'
+    },
+    notas: 'Pabellón 9 IFEMA',
+    fechaCreacion: hoy
+  },
+
+  // 4. Evento Activo 2 (Recién creado, sin ventas)
+  {
+    id: 'evt-active-02',
+    nombre: 'Mangafest Sevilla 2026',
+    fechaInicio: hoy,
+    estado: 'activo',
+    cajaInicial: {
+      billetes: { b50: 0, b20: 2, b10: 4, b5: 4 }, // 40 + 40 + 20 = 100€
+      monedas: { m200: 5, m100: 10, m50: 20, m20: 25, m10: 20, m5: 20, m2: 0, m1: 0 }, // 10 + 10 + 10 + 5 + 2 + 1 = 38€
+      ultimaActualizacion: `${hoy}T10:00:00.000Z`
+    },
+    cajaActual: {
+      billetes: { b50: 0, b20: 2, b10: 4, b5: 4 },
+      monedas: { m200: 5, m100: 10, m50: 20, m20: 25, m10: 20, m5: 20, m2: 0, m1: 0 },
+      ultimaActualizacion: `${hoy}T10:00:00.000Z`,
+      notas: 'Evento recién iniciado. Listo para aperturar ventas.'
+    },
+    notas: 'Palacio de Exposiciones FIBES',
+    fechaCreacion: hoy
+  }
+];
+
 export const INITIAL_SALES: Venta[] = [
+  // Ventas del Evento Activo 1 (Japan Weekend Madrid 2026)
   {
     id: 'ven-1001',
+    eventoId: 'evt-active-01',
+    nombreEvento: 'Japan Weekend Madrid 2026',
     lineas: [
       { productId: 'prod-001', nombreCorto: 'Pendientes Sakura Plata', cantidad: 1, precioUnitario: 12.00, precioCoste: 3.50 },
       { productId: 'prod-004', nombreCorto: 'Pin Sailor Moon Luna', cantidad: 2, precioUnitario: 5.00, precioCoste: 1.20 }
@@ -133,39 +258,71 @@ export const INITIAL_SALES: Venta[] = [
       monedas: { m200: 1, m100: 1 },
       total: 3.00
     },
-    fecha: new Date(Date.now() - 3600000 * 4).toISOString().split('T')[0],
+    fecha: hoy,
     hora: '11:15:30',
     timestamp: Date.now() - 3600000 * 4,
-    estado: 'registrada',
-    evento: 'Japan Weekend Stand 42'
+    estado: 'registrada'
   },
   {
     id: 'ven-1002',
+    eventoId: 'evt-active-01',
+    nombreEvento: 'Japan Weekend Madrid 2026',
     lineas: [
       { productId: 'prod-002', nombreCorto: 'Collar Máscara Hannya', cantidad: 1, precioUnitario: 15.00, precioCoste: 4.20 },
       { productId: 'prod-003', nombreCorto: 'Anillo Akatsuki Nube', cantidad: 1, precioUnitario: 8.50, precioCoste: 2.10 }
     ],
     total: 23.50,
     metodoPago: 'tpv',
-    fecha: new Date(Date.now() - 3600000 * 2.5).toISOString().split('T')[0],
+    fecha: hoy,
     hora: '12:45:10',
     timestamp: Date.now() - 3600000 * 2.5,
-    estado: 'registrada',
-    evento: 'Japan Weekend Stand 42'
+    estado: 'registrada'
   },
   {
     id: 'ven-1003',
+    eventoId: 'evt-active-01',
+    nombreEvento: 'Japan Weekend Madrid 2026',
     lineas: [
       { productId: 'prod-005', nombreCorto: 'Llavero Acrílico K-Pop Idol', cantidad: 3, precioUnitario: 6.00, precioCoste: 1.50 },
       { productId: 'prod-007', nombreCorto: 'Gargantilla Mariposa Gótica', cantidad: 1, precioUnitario: 9.50, precioCoste: 2.50 }
     ],
     total: 27.50,
     metodoPago: 'transferencia_bizum',
-    fecha: new Date(Date.now() - 3600000 * 1).toISOString().split('T')[0],
+    fecha: hoy,
     hora: '14:20:00',
     timestamp: Date.now() - 3600000 * 1,
-    estado: 'registrada',
-    evento: 'Japan Weekend Stand 42'
+    estado: 'registrada'
+  },
+
+  // Ventas históricas del Evento Cerrado 1 (Salón del Manga de Barcelona 2025)
+  {
+    id: 'ven-hist-01',
+    eventoId: 'evt-closed-01',
+    nombreEvento: 'Salón del Manga de Barcelona 2025',
+    lineas: [
+      { productId: 'prod-008', nombreCorto: 'Charm Genshin Visión Anemo', cantidad: 2, precioUnitario: 14.00, precioCoste: 3.80 },
+      { productId: 'prod-010', nombreCorto: 'Ear Cuffs Élficos Plata', cantidad: 1, precioUnitario: 16.00, precioCoste: 4.00 }
+    ],
+    total: 44.00,
+    metodoPago: 'tpv',
+    fecha: '2025-11-02',
+    hora: '13:10:00',
+    timestamp: new Date('2025-11-02T13:10:00.000Z').getTime(),
+    estado: 'registrada'
+  },
+  {
+    id: 'ven-hist-02',
+    eventoId: 'evt-closed-01',
+    nombreEvento: 'Salón del Manga de Barcelona 2025',
+    lineas: [
+      { productId: 'prod-009', nombreCorto: 'Set Pins Studio Ghibli', cantidad: 1, precioUnitario: 11.50, precioCoste: 3.00 }
+    ],
+    total: 11.50,
+    metodoPago: 'efectivo',
+    fecha: '2025-11-03',
+    hora: '16:45:00',
+    timestamp: new Date('2025-11-03T16:45:00.000Z').getTime(),
+    estado: 'registrada'
   }
 ];
 
@@ -173,7 +330,22 @@ export const INITIAL_SETTINGS: AppSettings = {
   mockDataEnabled: true,
   umbralStockBajo: 5,
   umbralMonedasBajas: 5,
-  nombreEvento: 'Japan Weekend / Salón Manga',
-  nombreTienda: 'KiraKira Stand & Jewels',
+  nombreTienda: 'KiraKira Jewels & Merch',
   autoImprimirTicket: false
 };
+
+export const MOCK_PRODUCT_IDS = new Set<string>(INITIAL_PRODUCTS.map((p) => p.id));
+export const MOCK_EVENT_IDS = new Set<string>(INITIAL_EVENTS.map((e) => e.id));
+export const MOCK_SALE_IDS = new Set<string>(INITIAL_SALES.map((s) => s.id));
+
+export function isMockProductId(id: string): boolean {
+  return MOCK_PRODUCT_IDS.has(id);
+}
+
+export function isMockEventId(id: string): boolean {
+  return MOCK_EVENT_IDS.has(id);
+}
+
+export function isMockSaleId(id: string): boolean {
+  return MOCK_SALE_IDS.has(id);
+}

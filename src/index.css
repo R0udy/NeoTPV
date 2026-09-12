@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
+  html, body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     background-color: #FDFBF7;
     color: #4A4A4A;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
   }
+  
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
+  }
+
   h1, h2, h3, h4, .font-display {
     font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 }
 
-/* Custom scrollbars for tablet touch and lists */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -33,6 +45,12 @@
 
 /* Touch active feedback */
 .touch-press:active {
-  transform: scale(0.97);
-  transition: transform 0.08s ease-in-out;
+  transform: scale(0.98);
+  transition: transform 0.06s ease-in-out;
+}
+
+/* Evitar desplazamientos horizontales en tablas y cuadrículas */
+.no-horizontal-scroll {
+  overflow-x: hidden;
+  max-width: 100%;
 }

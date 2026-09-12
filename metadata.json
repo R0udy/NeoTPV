@@ -1,6 +1,6 @@
 {
-  "name": "TPV Stand Eventos",
-  "description": "Sistema de TPV y gestión para stand de eventos de joyería y merchandising anime/K-pop.",
+  "name": "TPV e Inventario de Eventos",
+  "description": "Sistema de inventario general centralizado y TPV multievento con gestión de arqueos de caja, ventas y cuentas por evento.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useDataStore } from '../../store/useDataStore';
 import { Venta, MetodoPago, EstadoVenta } from '../../types';
-import { formatearEuros, DENOMINACIONES_LIST } from '../../utils/cashUtils';
+import { formatearEuros } from '../../utils/cashUtils';
 import {
   ReceiptText,
   Search,
   RotateCcw,
-  Edit,
   Eye,
   CheckCircle2,
   AlertCircle,
@@ -17,15 +16,14 @@ import {
   Banknote,
   Sparkles,
   X,
-  Printer,
-  ChevronDown
+  Printer
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 export const VentasView: React.FC = () => {
-  const { ventas, devolverVenta, modificarVenta } = useDataStore();
+  const { ventas, eventos, eventoActivoId, devolverVenta } = useDataStore();
 
   const [busqueda, setBusqueda] = useState('');
+  const [filtroEvento, setFiltroEvento] = useState<string>(eventoActivoId || 'todos');
   const [filtroMetodo, setFiltroMetodo] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
 
@@ -37,23 +35,36 @@ export const VentasView: React.FC = () => {
 
   const ventasFiltradas = useMemo(() => {
     return ventas.filter((v) => {
+      const matchEvento =
+        filtroEvento === 'todos' || v.eventoId === filtroEvento;
+
       const matchBusqueda =
         v.id.toLowerCase().includes(busqueda.toLowerCase()) ||
+        (v.nombreEvento && v.nombreEvento.toLowerCase().includes(busqueda.toLowerCase())) ||
         v.lineas.some((l) => l.nombreCorto.toLowerCase().includes(busqueda.toLowerCase()));
 
       const matchMetodo = filtroMetodo === 'todos' || v.metodoPago === filtroMetodo;
       const matchEstado = filtroEstado === 'todos' || v.estado === filtroEstado;
 
-      return matchBusqueda && matchMetodo && matchEstado;
+      return matchEvento && matchBusqueda && matchMetodo && matchEstado;
     });
-  }, [ventas, busqueda, filtroMetodo, filtroEstado]);
+  }, [ventas, busqueda, filtroEvento, filtroMetodo, filtroEstado]);
+
+  const totalFacturadoFiltrado = useMemo(() => {
+    return ventasFiltradas
+      .filter((v) => v.estado !== 'devuelta')
+      .reduce((sum, v) => sum + v.total, 0);
+  }, [ventasFiltradas]);
 
   const handleConfirmarDevolucion = async () => {
     if (!ventaParaDevolver || isProcessing) return;
     setIsProcessing(true);
-    await devolverVenta(ventaParaDevolver.id, motivoDevolucion);
-    setIsProcessing(false);
-    setVentaParaDevolver(null);
+    try {
+      await devolverVenta(ventaParaDevolver.id, motivoDevolucion);
+    } finally {
+      setIsProcessing(false);
+      setVentaParaDevolver(null);
+    }
   };
 
   const getMetodoIcon = (metodo: MetodoPago) => {
@@ -69,49 +80,63 @@ export const VentasView: React.FC = () => {
   };
 
   return (
-    <div id="ventas-view-container" className="max-w-7xl mx-auto p-3 sm:p-5 space-y-5">
+    <div id="ventas-view-container" className="max-w-7xl mx-auto p-3 sm:p-5 space-y-5 animate-fadeIn">
       
       {/* Header */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-rose-100/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-800 flex items-center justify-center font-bold">
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
             <ReceiptText className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold font-display text-slate-800">
+            <h1 className="text-xl font-bold tracking-tight text-slate-800">
               Registro de Ventas y Devoluciones
             </h1>
             <p className="text-xs text-slate-500">
-              Historial de tickets cobrados, gestión de reembolsos y auditoría de stand
+              Historial de tickets por evento. Las devoluciones reintegran stock al inventario general y efectivo a la caja del evento.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-50 text-purple-800 border border-purple-200">
-            Total ventas: {ventas.length}
+          <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-50 text-blue-800 border border-blue-200">
+            {ventasFiltradas.length} tickets · Total: {formatearEuros(totalFacturadoFiltrado)}
           </span>
         </div>
       </div>
 
       {/* Filtros y Búsqueda */}
-      <div className="bg-white p-4 rounded-2xl shadow-xs border border-rose-100/80 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por ID de ticket (#1001) o nombre de producto..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-rose-400 focus:outline-hidden min-h-[42px]"
+            placeholder="Buscar por ID (#ven-...), producto o evento..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:ring-2 focus:ring-blue-400 focus:outline-hidden min-h-[40px]"
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Selector de Evento */}
+          <select
+            value={filtroEvento}
+            onChange={(e) => setFiltroEvento(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-400 focus:outline-hidden min-h-[40px]"
+          >
+            <option value="todos">Todos los Eventos</option>
+            {eventos.map((evt) => (
+              <option key={evt.id} value={evt.id}>
+                {evt.nombre} {evt.estado === 'activo' ? '(Activo)' : '(Cerrado)'}
+              </option>
+            ))}
+          </select>
+
           <select
             value={filtroMetodo}
             onChange={(e) => setFiltroMetodo(e.target.value)}
-            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-rose-400 focus:outline-hidden min-h-[42px]"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-400 focus:outline-hidden min-h-[40px]"
           >
             <option value="todos">Método: Todos</option>
             <option value="efectivo">Efectivo</option>
@@ -122,7 +147,7 @@ export const VentasView: React.FC = () => {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-rose-400 focus:outline-hidden min-h-[42px]"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-blue-400 focus:outline-hidden min-h-[40px]"
           >
             <option value="todos">Estado: Todos</option>
             <option value="registrada">Registradas</option>
@@ -150,10 +175,10 @@ export const VentasView: React.FC = () => {
             return (
               <div
                 key={venta.id}
-                className={`bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-xs border transition-all ${
+                className={`bg-white rounded-2xl p-4 sm:p-5 shadow-xs border transition-all ${
                   isDevuelta
                     ? 'border-rose-200 bg-rose-50/20 opacity-80'
-                    : 'border-slate-200/80 hover:border-purple-200'
+                    : 'border-slate-200 hover:border-blue-200'
                 }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -161,9 +186,17 @@ export const VentasView: React.FC = () => {
                   {/* Info Principal de la Venta */}
                   <div className="space-y-2 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-extrabold text-sm text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
+                      <span className="font-mono font-extrabold text-xs sm:text-sm text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
                         #{venta.id.slice(-6)}
                       </span>
+
+                      {/* Evento asociado */}
+                      {venta.nombreEvento && (
+                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-blue-500" />
+                          <span>{venta.nombreEvento}</span>
+                        </span>
+                      )}
 
                       <span
                         className={`text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
@@ -220,43 +253,35 @@ export const VentasView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Total & Acciones */}
-                  <div className="flex items-center justify-between lg:justify-end gap-4 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                  {/* Importe y Acciones */}
+                  <div className="flex items-center justify-between lg:justify-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 shrink-0">
                     <div className="text-right">
                       <span className="text-xs text-slate-400 block font-medium">
                         {totalUds} {totalUds === 1 ? 'unidad' : 'unidades'}
                       </span>
-                      <span
-                        className={`text-2xl font-extrabold font-display ${
-                          isDevuelta ? 'text-slate-400 line-through' : 'text-slate-900'
-                        }`}
-                      >
+                      <span className={`text-xl font-black ${isDevuelta ? 'text-slate-400 line-through' : 'text-blue-600'}`}>
                         {formatearEuros(venta.total)}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => setVentaDetalle(venta)}
-                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors touch-press flex items-center gap-1.5"
-                        title="Ver detalle del ticket"
+                        className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                        title="Ver detalle de ticket"
                       >
                         <Eye className="w-4 h-4" />
-                        <span className="hidden sm:inline">Detalles</span>
                       </button>
 
                       {!isDevuelta && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setVentaParaDevolver(venta);
-                            setMotivoDevolucion('Devolución de cliente en stand');
-                          }}
-                          className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition-colors touch-press flex items-center gap-1.5"
-                          title="Hacer devolución (revertirá stock y caja)"
+                          onClick={() => setVentaParaDevolver(venta)}
+                          className="px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1 border border-rose-200 cursor-pointer"
+                          title="Devolver venta (reintegra stock general y dinero)"
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <RotateCcw className="w-3.5 h-3.5" />
                           <span>Devolver</span>
                         </button>
                       )}
@@ -271,145 +296,90 @@ export const VentasView: React.FC = () => {
 
       {/* Modal Detalle de Venta */}
       {ventaDetalle && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-rose-100 overflow-hidden"
-          >
-            <div className="p-5 bg-gradient-to-r from-purple-50 to-rose-50 border-b border-rose-100 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200 animate-fadeIn">
+            <div className="flex items-center justify-between border-b pb-3">
               <div>
-                <h3 className="font-bold font-display text-slate-800 text-base">
-                  Ticket #{ventaDetalle.id.slice(-6)}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {ventaDetalle.fecha} a las {ventaDetalle.hora}
-                </p>
+                <h3 className="font-bold text-slate-900 text-base">Ticket #{ventaDetalle.id.slice(-6)}</h3>
+                <p className="text-xs text-slate-400">{ventaDetalle.fecha} · {ventaDetalle.hora}</p>
+                {ventaDetalle.nombreEvento && (
+                  <p className="text-xs font-semibold text-blue-600 mt-0.5">{ventaDetalle.nombreEvento}</p>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => setVentaDetalle(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="text-slate-400 hover:text-slate-700 p-1"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
-              <div className="space-y-2 border-b border-slate-100 pb-3">
-                <span className="font-bold text-slate-900 uppercase block text-[11px]">
-                  Líneas de Producto
-                </span>
-                {ventaDetalle.lineas.map((l, i) => (
-                  <div key={i} className="flex justify-between items-center py-1">
-                    <span>
-                      <strong>{l.cantidad}x</strong> {l.nombreCorto}
-                    </span>
+            <div className="space-y-2 text-xs">
+              <div className="divide-y divide-slate-100">
+                {ventaDetalle.lineas.map((linea, i) => (
+                  <div key={i} className="py-2 flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-slate-800">{linea.nombreCorto}</p>
+                      <p className="text-slate-400">{linea.cantidad} x {formatearEuros(linea.precioUnitario)}</p>
+                    </div>
                     <span className="font-bold text-slate-900">
-                      {formatearEuros(l.cantidad * l.precioUnitario)}
+                      {formatearEuros(linea.cantidad * linea.precioUnitario)}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* Si fue efectivo, mostrar desglose */}
-              {ventaDetalle.metodoPago === 'efectivo' && ventaDetalle.efectivoEntrante && (
-                <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/80 space-y-1.5">
-                  <div className="flex justify-between font-semibold">
-                    <span>Efectivo entregado por cliente:</span>
-                    <span>{formatearEuros(ventaDetalle.efectivoEntrante.total)}</span>
-                  </div>
-                  {ventaDetalle.vueltas && (
-                    <div className="flex justify-between text-emerald-800 font-bold">
-                      <span>Vueltas devueltas:</span>
-                      <span>{formatearEuros(ventaDetalle.vueltas.total)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-between text-base font-extrabold text-slate-900 pt-1">
+              <div className="pt-3 border-t border-slate-200 flex justify-between items-center text-sm font-black">
                 <span>Total Cobrado:</span>
-                <span className="text-xl font-display text-rose-600">
-                  {formatearEuros(ventaDetalle.total)}
-                </span>
+                <span className="text-blue-600 text-lg">{formatearEuros(ventaDetalle.total)}</span>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <div className="pt-2 text-right">
               <button
                 type="button"
                 onClick={() => setVentaDetalle(null)}
-                className="py-2 px-5 rounded-xl bg-slate-200 hover:bg-slate-300 font-bold text-xs text-slate-800 transition-colors"
+                className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-200 cursor-pointer"
               >
                 Cerrar
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* Modal Confirmar Devolución */}
       {ventaParaDevolver && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-rose-100 overflow-hidden"
-          >
-            <div className="p-5 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-rose-800">
-                <RotateCcw className="w-5 h-5" />
-                <h3 className="font-bold font-display text-base">
-                  Confirmar Devolución #{ventaParaDevolver.id.slice(-6)}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setVentaParaDevolver(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Al confirmar la devolución:
-              </p>
-              <ul className="text-xs text-slate-700 space-y-1 list-disc pl-4">
-                <li>
-                  Se <strong>restituirá el stock</strong> de los{' '}
-                  {ventaParaDevolver.lineas.reduce((acc, l) => acc + l.cantidad, 0)} artículos al
-                  inventario.
-                </li>
-                {ventaParaDevolver.metodoPago === 'efectivo' && (
-                  <li>
-                    Se <strong>descontarán los {formatearEuros(ventaParaDevolver.total)}</strong> de
-                    la caja de efectivo.
-                  </li>
-                )}
-                <li>El estado del ticket pasará a <strong>Devuelta</strong>.</li>
-              </ul>
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-200 animate-fadeIn">
+            <div className="flex items-center gap-3 text-rose-600 border-b pb-3">
+              <RotateCcw className="w-6 h-6" />
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Motivo de la devolución
-                </label>
-                <input
-                  type="text"
-                  value={motivoDevolucion}
-                  onChange={(e) => setMotivoDevolucion(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-400 focus:outline-hidden"
-                />
+                <h3 className="font-bold text-slate-900 text-base">Confirmar Devolución</h3>
+                <p className="text-xs text-slate-500">Ticket #{ventaParaDevolver.id.slice(-6)} · {formatearEuros(ventaParaDevolver.total)}</p>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end">
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Al confirmar, las unidades vendidas se reincorporarán automáticamente al <b>Inventario General</b> y el importe de {formatearEuros(ventaParaDevolver.total)} se restará de la <b>caja del evento</b>.
+            </p>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Motivo de devolución</label>
+              <input
+                type="text"
+                value={motivoDevolucion}
+                onChange={(e) => setMotivoDevolucion(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setVentaParaDevolver(null)}
-                className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-200 font-semibold text-xs text-slate-700 transition-colors"
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
               >
                 Cancelar
               </button>
@@ -417,13 +387,12 @@ export const VentasView: React.FC = () => {
                 type="button"
                 disabled={isProcessing}
                 onClick={handleConfirmarDevolucion}
-                className="py-2.5 px-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{isProcessing ? 'Procesando...' : 'Efectuar Devolución'}</span>
+                {isProcessing ? 'Procesando...' : 'Confirmar Reembolso'}
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>
