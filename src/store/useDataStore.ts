@@ -23,7 +23,7 @@ import {
   aplicarEfectivoACaja,
   revertirEfectivoDeCaja
 } from '../utils/cashUtils';
-import { INITIAL_SETTINGS } from '../data/mockSeedData';
+import { INITIAL_SETTINGS, DEFAULT_CATEGORIAS } from '../data/mockSeedData';
 
 export type CriterioOrden = 'nombre' | 'precio_asc' | 'precio_desc' | 'stock_asc' | 'stock_desc';
 
@@ -53,6 +53,7 @@ interface DataState {
 
   // Helpers
   getEventoActivo: () => Evento | null;
+  getCategoriasDisponibles: () => string[];
 
   // Acciones globales
   cargarTodo: () => Promise<void>;
@@ -60,6 +61,11 @@ interface DataState {
   setBusqueda: (texto: string) => void;
   setFiltroEtiqueta: (etiqueta: string | null) => void;
   setOrden: (orden: CriterioOrden) => void;
+  
+  // Categorías
+  crearCategoria: (nombre: string) => Promise<void>;
+  eliminarCategoria: (nombre: string) => Promise<{ productosAfectados: number }>;
+  renombrarCategoria: (nombreActual: string, nuevoNombre: string) => Promise<{ productosAfectados: number }>;
   
   // Eventos
   crearEvento: (params: {
@@ -120,6 +126,13 @@ export const useDataStore = create<DataState>((set, get) => ({
     const { eventos, eventoActivoId } = get();
     if (!eventoActivoId) return null;
     return eventos.find((e) => e.id === eventoActivoId) || null;
+  },
+
+  getCategoriasDisponibles: () => {
+    const fromSettings = get().settings.categorias || DEFAULT_CATEGORIAS;
+    const fromProducts = get().productos.flatMap((p) => p.etiquetas || []);
+    const unique = Array.from(new Set([...fromSettings, ...fromProducts]));
+    return unique.filter((c) => Boolean(c && c.trim())).sort((a, b) => a.localeCompare(b));
   },
 
   mostrarToast: (texto, tipo = 'info') => {
@@ -564,6 +577,157 @@ export const useDataStore = create<DataState>((set, get) => ({
     } catch (error) {
       console.error('Error al modificar la venta:', error);
       get().mostrarToast('Error al modificar la venta', 'error');
+    }
+  },
+
+  // --- Categorías Globales del Catálogo ---
+  crearCategoria: async (nombre: string) => {
+    const clean = nombre.trim();
+    if (!clean) return;
+    const currentCategorias = get().settings.categorias || DEFAULT_CATEGORIAS;
+    if (currentCategorias.some((c) => c.toLowerCase() === clean.toLowerCase())) {
+      get().mostrarToast(`La categoría "${clean}" ya existe`, 'warning');
+      return;
+    }
+    const nuevasCategorias = [...currentCategorias, clean];
+    const nuevosSettings: AppSettings = {
+      ...get().settings,
+      categorias: nuevasCategorias
+    };
+    await get().actualizarSettings(nuevosSettings);
+    get().mostrarToast(`Categoría "${clean}" creada con éxito`, 'success');
+  },
+
+  eliminarCategoria: async (nombre: string) => {
+    const clean = nombre.trim();
+    if (!clean) return { productosAfectados: 0 };
+    
+    try {
+      const provider = getDataProvider();
+      const productos = get().productos;
+      const productosAfectados = productos.filter((p) => p.etiquetas && p.etiquetas.includes(clean));
+
+      // Desvincular la categoría de todos los productos que la tenían asignada
+      if (productosAfectados.length > 0) {
+        for (const prod of productosAfectados) {
+          const prodActualizado: Producto = {
+            ...prod,
+            etiquetas: (prod.etiquetas || []).filter((e) => e !== clean)
+          };
+          await provider.saveProduct(prodActualizado);
+        }
+      }
+
+      // Eliminar la categoría de la lista oficial de ajustes
+      const currentCategorias = get().settings.categorias || DEFAULT_CATEGORIAS;
+      const nuevasCategorias = currentCategorias.filter((c) => c.toLowerCase() !== clean.toLowerCase());
+      const nuevosSettings: AppSettings = {
+        ...get().settings,
+        categorias: nuevasCategorias
+      };
+      await provider.saveSettings(nuevosSettings);
+
+      // Recargar catálogo y actualizar estado
+      const productosActualizados = await provider.getProducts();
+      const eventoActivo = get().getEventoActivo();
+      const alertas = generarAlertasSistema(
+        productosActualizados,
+        eventoActivo ? eventoActivo.cajaActual : null,
+        nuevosSettings
+      );
+
+      let nuevoFiltro = get().filtroEtiqueta;
+      if (nuevoFiltro === clean) {
+        nuevoFiltro = null;
+      }
+
+      set({
+        productos: productosActualizados,
+        settings: nuevosSettings,
+        alertas,
+        filtroEtiqueta: nuevoFiltro
+      });
+
+      get().mostrarToast(
+        productosAfectados.length > 0
+          ? `Categoría "${clean}" eliminada y desvinculada de ${productosAfectados.length} producto${productosAfectados.length > 1 ? 's' : ''}`
+          : `Categoría "${clean}" eliminada correctamente`,
+        'info'
+      );
+
+      return { productosAfectados: productosAfectados.length };
+    } catch (error) {
+      console.error('Error al eliminar categoría:', error);
+      get().mostrarToast('Error al eliminar la categoría', 'error');
+      return { productosAfectados: 0 };
+    }
+  },
+
+  renombrarCategoria: async (nombreActual: string, nuevoNombre: string) => {
+    const cleanOld = nombreActual.trim();
+    const cleanNew = nuevoNombre.trim();
+    if (!cleanOld || !cleanNew || cleanOld === cleanNew) return { productosAfectados: 0 };
+
+    try {
+      const provider = getDataProvider();
+      const productos = get().productos;
+      const productosAfectados = productos.filter((p) => p.etiquetas && p.etiquetas.includes(cleanOld));
+
+      // Actualizar la categoría en todos los productos afectados
+      if (productosAfectados.length > 0) {
+        for (const prod of productosAfectados) {
+          const prodActualizado: Producto = {
+            ...prod,
+            etiquetas: (prod.etiquetas || []).map((e) => (e === cleanOld ? cleanNew : e))
+          };
+          await provider.saveProduct(prodActualizado);
+        }
+      }
+
+      // Actualizar en settings
+      const currentCategorias = get().settings.categorias || DEFAULT_CATEGORIAS;
+      const nuevasCategorias = currentCategorias.map((c) => (c === cleanOld ? cleanNew : c));
+      if (!nuevasCategorias.includes(cleanNew)) {
+        nuevasCategorias.push(cleanNew);
+      }
+      const nuevosSettings: AppSettings = {
+        ...get().settings,
+        categorias: nuevasCategorias
+      };
+      await provider.saveSettings(nuevosSettings);
+
+      const productosActualizados = await provider.getProducts();
+      const eventoActivo = get().getEventoActivo();
+      const alertas = generarAlertasSistema(
+        productosActualizados,
+        eventoActivo ? eventoActivo.cajaActual : null,
+        nuevosSettings
+      );
+
+      let nuevoFiltro = get().filtroEtiqueta;
+      if (nuevoFiltro === cleanOld) {
+        nuevoFiltro = cleanNew;
+      }
+
+      set({
+        productos: productosActualizados,
+        settings: nuevosSettings,
+        alertas,
+        filtroEtiqueta: nuevoFiltro
+      });
+
+      get().mostrarToast(
+        productosAfectados.length > 0
+          ? `Categoría renombrada a "${cleanNew}" en ${productosAfectados.length} productos`
+          : `Categoría renombrada a "${cleanNew}"`,
+        'success'
+      );
+
+      return { productosAfectados: productosAfectados.length };
+    } catch (error) {
+      console.error('Error al renombrar categoría:', error);
+      get().mostrarToast('Error al renombrar la categoría', 'error');
+      return { productosAfectados: 0 };
     }
   },
 

@@ -43,17 +43,14 @@ export const POSView: React.FC = () => {
     filtroEtiqueta,
     setFiltroEtiqueta,
     orden,
-    setOrden
+    setOrden,
+    getCategoriasDisponibles
   } = useDataStore();
 
-  // Obtener lista única de todas las etiquetas del catálogo
-  const todasLasEtiquetas = useMemo(() => {
-    const set = new Set<string>();
-    productos.forEach((p) => {
-      p.etiquetas?.forEach((e) => set.add(e));
-    });
-    return Array.from(set);
-  }, [productos]);
+  // Obtener lista única de todas las categorías disponibles
+  const todasLasCategorias = useMemo(() => {
+    return getCategoriasDisponibles();
+  }, [getCategoriasDisponibles, productos]);
 
   // Filtrado y ordenación de productos
   const productosFiltrados = useMemo(() => {
@@ -325,7 +322,7 @@ export const POSView: React.FC = () => {
               </div>
             </div>
 
-            {/* Filtros de Etiquetas Rápidas (Pills) */}
+            {/* Filtros de Categorías Rápidas (Pills) */}
             <div className="flex flex-wrap items-center gap-2 pb-1">
               <button
                 type="button"
@@ -336,21 +333,21 @@ export const POSView: React.FC = () => {
                     : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
                 }`}
               >
-                Todos ({productos.length})
+                Todas ({productos.length})
               </button>
 
-              {todasLasEtiquetas.map((etiqueta) => (
+              {todasLasCategorias.map((cat) => (
                 <button
-                  key={etiqueta}
+                  key={cat}
                   type="button"
-                  onClick={() => setFiltroEtiqueta(etiqueta)}
+                  onClick={() => setFiltroEtiqueta(cat)}
                   className={`px-5 py-2 rounded-full font-bold text-sm transition-all whitespace-nowrap min-h-[36px] touch-press cursor-pointer ${
-                    filtroEtiqueta === etiqueta
+                    filtroEtiqueta === cat
                       ? 'bg-[#E8F5E9] text-[#2E7D32] border border-emerald-200/60 shadow-xs'
                       : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
                   }`}
                 >
-                  {etiqueta}
+                  {cat}
                 </button>
               ))}
             </div>

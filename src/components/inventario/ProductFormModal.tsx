@@ -3,7 +3,7 @@ import { Producto } from '../../types';
 import { useDataStore } from '../../store/useDataStore';
 import { formatImageUrl } from '../../config/onedriveConfig';
 import { formatearEuros } from '../../utils/cashUtils';
-import { X, Save, Sparkles, Image as ImageIcon, Tag, Plus } from 'lucide-react';
+import { X, Save, Sparkles, Image as ImageIcon, Tags, Plus, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface ProductFormModalProps {
@@ -12,27 +12,12 @@ interface ProductFormModalProps {
   onClose: () => void;
 }
 
-const ETIQUETAS_SUGERIDAS = [
-  'Joyería',
-  'Anime',
-  'K-Pop',
-  'Merch',
-  'Pins',
-  'Llaveros',
-  'Gótico',
-  'Japón',
-  'Gaming',
-  'Fantasía',
-  'Naruto',
-  'Ghibli'
-];
-
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   productoEditar,
   isOpen,
   onClose
 }) => {
-  const { guardarProducto } = useDataStore();
+  const { guardarProducto, getCategoriasDisponibles, crearCategoria } = useDataStore();
 
   const [nombreCorto, setNombreCorto] = useState('');
   const [nombreLargo, setNombreLargo] = useState('');
@@ -41,9 +26,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [precioCoste, setPrecioCoste] = useState<number | string>(2.5);
   const [precioVenta, setPrecioVenta] = useState<number | string>(10.0);
   const [stock, setStock] = useState<number | string>(10);
-  const [etiquetas, setEtiquetas] = useState<string[]>(['Joyería']);
-  const [nuevaEtiquetaInput, setNuevaEtiquetaInput] = useState('');
+  const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState<string[]>(['Joyería']);
+  const [nuevaCategoriaInput, setNuevaCategoriaInput] = useState('');
+  const [mostrarCrearInput, setMostrarCrearInput] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const categoriasDisponibles = getCategoriasDisponibles();
 
   useEffect(() => {
     if (productoEditar) {
@@ -54,7 +42,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setPrecioCoste(productoEditar.precioCoste);
       setPrecioVenta(productoEditar.precioVenta);
       setStock(productoEditar.stock);
-      setEtiquetas(productoEditar.etiquetas || []);
+      setCategoriasSeleccionadas(productoEditar.etiquetas || []);
     } else {
       setNombreCorto('');
       setNombreLargo('');
@@ -63,8 +51,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setPrecioCoste(2.5);
       setPrecioVenta(9.0);
       setStock(12);
-      setEtiquetas(['Joyería', 'Anime']);
+      setCategoriasSeleccionadas(['Joyería']);
     }
+    setMostrarCrearInput(false);
+    setNuevaCategoriaInput('');
   }, [productoEditar, isOpen]);
 
   const pCosteNum = typeof precioCoste === 'number' ? precioCoste : parseFloat(precioCoste) || 0;
@@ -72,17 +62,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const beneficioUnitario = pVentaNum - pCosteNum;
   const margenPorcentaje = pVentaNum > 0 ? (beneficioUnitario / pVentaNum) * 100 : 0;
 
-  const handleAddEtiqueta = (tag: string) => {
-    const clean = tag.trim();
+  const handleToggleCategoria = (cat: string) => {
+    const clean = cat.trim();
     if (!clean) return;
-    if (etiquetas.includes(clean)) return;
-    if (etiquetas.length >= 3) return; // Máximo 3 etiquetas
-    setEtiquetas([...etiquetas, clean]);
-    setNuevaEtiquetaInput('');
+
+    if (categoriasSeleccionadas.includes(clean)) {
+      setCategoriasSeleccionadas(categoriasSeleccionadas.filter((c) => c !== clean));
+    } else {
+      if (categoriasSeleccionadas.length >= 3) return; // Máximo 3 categorías
+      setCategoriasSeleccionadas([...categoriasSeleccionadas, clean]);
+    }
   };
 
-  const handleRemoveEtiqueta = (tagToRemove: string) => {
-    setEtiquetas(etiquetas.filter((t) => t !== tagToRemove));
+  const handleCrearYNuevoSeleccionar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = nuevaCategoriaInput.trim();
+    if (!clean) return;
+
+    await crearCategoria(clean);
+    if (categoriasSeleccionadas.length < 3 && !categoriasSeleccionadas.includes(clean)) {
+      setCategoriasSeleccionadas([...categoriasSeleccionadas, clean]);
+    }
+    setNuevaCategoriaInput('');
+    setMostrarCrearInput(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -99,7 +101,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       precioCoste: Number(pCosteNum),
       precioVenta: Number(pVentaNum),
       stock: Number(typeof stock === 'number' ? stock : parseInt(stock, 10) || 0),
-      etiquetas: etiquetas.slice(0, 3)
+      etiquetas: categoriasSeleccionadas.slice(0, 3)
     };
 
     await guardarProducto(prodFinal);
@@ -148,96 +150,61 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4">
           
-          {/* Vista previa de imagen + URL de OneDrive */}
-          <div className="flex flex-col sm:flex-row items-start gap-4 p-3.5 bg-[#F8F9FA] rounded-2xl border border-[#F0EBE3]">
-            <div className="w-20 h-20 rounded-xl bg-slate-200 border border-[#F0EBE3] overflow-hidden shrink-0 mx-auto sm:mx-0 flex items-center justify-center">
-              {imagenUrl ? (
-                <img
-                  src={formatImageUrl(imagenUrl)}
-                  alt="Vista previa"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=150&q=80';
-                  }}
-                />
-              ) : (
-                <ImageIcon className="w-8 h-8 text-slate-400" />
-              )}
-            </div>
-
-            <div className="flex-1 w-full space-y-1">
-              <label className="block text-xs font-bold text-slate-700">
-                URL de Imagen (OneDrive / Enlace Web)
-              </label>
-              <input
-                type="url"
-                value={imagenUrl}
-                onChange={(e) => setImagenUrl(e.target.value)}
-                placeholder="https://1drv.ms/u/... o https://images..."
-                className="w-full px-3 py-2 bg-white border border-[#F0EBE3] rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
-              />
-              <p className="text-[10px] text-slate-400 font-medium">
-                Introduce el enlace compartido de OneDrive. Si está vacío se asignará un placeholder temático.
-              </p>
-            </div>
-          </div>
-
-          {/* Nombre Corto y Nombre Largo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+          {/* Nombre corto y largo */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-1">
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nombre Corto (Botón TPV) *
+                Nombre Corto (TPV) *
               </label>
               <input
                 type="text"
                 required
                 value={nombreCorto}
                 onChange={(e) => setNombreCorto(e.target.value)}
-                placeholder="ej. Pendientes Sakura"
-                className="w-full px-3.5 py-2.5 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
+                placeholder="Ej: Anillo Dragón"
+                className="w-full px-3 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
               />
             </div>
-
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Nombre Largo / Detallado
+                Nombre Largo Descriptivo
               </label>
               <input
                 type="text"
                 value={nombreLargo}
                 onChange={(e) => setNombreLargo(e.target.value)}
-                placeholder="ej. Pendientes de Flor Sakura en Plata 925"
-                className="w-full px-3.5 py-2.5 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
+                placeholder="Ej: Anillo de Plata 925 Escamas de Dragón"
+                className="w-full px-3 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
               />
             </div>
           </div>
 
-          {/* Descripción */}
+          {/* URL de Imagen */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Descripción del Producto
+            <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+              <span>URL de Imagen (OneDrive o Directa)</span>
             </label>
-            <textarea
-              rows={2}
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Materiales, detalles de acabado, talla o curiosidades para el comprador..."
-              className="w-full px-3.5 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden resize-none"
+            <input
+              type="url"
+              value={imagenUrl}
+              onChange={(e) => setImagenUrl(e.target.value)}
+              placeholder="https://1drv.ms/... o enlace web https://..."
+              className="w-full px-3 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden"
             />
           </div>
 
-          {/* Precios, Margen y Stock */}
+          {/* Precios y Stock */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Precio Coste (€)
+                Coste Unitario (€) *
               </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
+                required
                 value={precioCoste}
                 onChange={(e) => setPrecioCoste(e.target.value)}
                 className="w-full px-3 py-2 bg-[#F8F9FA] border border-[#F0EBE3] rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-400 focus:outline-hidden text-center"
@@ -245,8 +212,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#1976D2] mb-1">
-                Precio Venta (€) *
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Precio PVP (€) *
               </label>
               <input
                 type="number"
@@ -292,54 +259,119 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </span>
           </div>
 
-          {/* Etiquetas (máximo 3) */}
-          <div className="space-y-2">
+          {/* Categorías (máximo 3) */}
+          <div className="space-y-2.5">
             <div className="flex justify-between items-center">
-              <label className="text-xs font-bold text-slate-700">
-                Etiquetas / Categorías (Máximo 3)
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Tags className="w-3.5 h-3.5 text-rose-500" />
+                <span>Categorías del Producto (Máximo 3)</span>
               </label>
-              <span className="text-[11px] text-slate-400 font-medium">{etiquetas.length}/3 seleccionadas</span>
+              <span className={`text-[11px] font-bold ${categoriasSeleccionadas.length === 3 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {categoriasSeleccionadas.length}/3 seleccionadas
+              </span>
             </div>
 
-            {/* Etiquetas activas */}
-            <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-[#F8F9FA] rounded-xl border border-[#F0EBE3]">
-              {etiquetas.map((t) => (
+            {/* Pastillas de categorías seleccionadas */}
+            <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-[#F8F9FA] rounded-xl border border-[#F0EBE3] items-center">
+              {categoriasSeleccionadas.map((cat) => (
                 <span
-                  key={t}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#E3F2FD] text-[#1976D2] text-xs font-bold border border-blue-200"
+                  key={cat}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200 shadow-2xs"
                 >
-                  <Tag className="w-3 h-3" />
-                  <span>{t}</span>
+                  <span>{cat}</span>
                   <button
                     type="button"
-                    onClick={() => handleRemoveEtiqueta(t)}
-                    className="hover:text-rose-600 ml-0.5 cursor-pointer"
+                    onClick={() => handleToggleCategoria(cat)}
+                    className="hover:text-rose-900 ml-0.5 cursor-pointer text-rose-400 hover:bg-rose-200 rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                    title={`Desvincular categoría ${cat}`}
                   >
                     ×
                   </button>
                 </span>
               ))}
-              {etiquetas.length === 0 && (
-                <span className="text-xs text-slate-400 italic">Sin etiquetas seleccionadas</span>
+              {categoriasSeleccionadas.length === 0 && (
+                <span className="text-xs text-slate-400 italic">Sin categorías seleccionadas (haz clic abajo para elegir)</span>
               )}
             </div>
 
-            {/* Sugerencias rápidas */}
-            {etiquetas.length < 3 && (
-              <div className="flex flex-wrap items-center gap-1 pt-1">
-                <span className="text-[10px] font-semibold text-slate-400 mr-1">Sugeridas:</span>
-                {ETIQUETAS_SUGERIDAS.filter((s) => !etiquetas.includes(s)).slice(0, 7).map((sug) => (
+            {/* Selector de Categorías Disponibles */}
+            <div className="space-y-2 pt-1">
+              <div className="text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                <span>Seleccionar de la lista:</span>
+                {!mostrarCrearInput && (
                   <button
-                    key={sug}
                     type="button"
-                    onClick={() => handleAddEtiqueta(sug)}
-                    className="px-2 py-0.5 rounded-md bg-white border border-[#F0EBE3] hover:bg-[#E3F2FD] hover:text-[#1976D2] text-[11px] font-medium text-slate-600 transition-colors cursor-pointer"
+                    onClick={() => setMostrarCrearInput(true)}
+                    className="text-rose-600 hover:text-rose-800 text-[11px] font-bold flex items-center gap-0.5 cursor-pointer"
                   >
-                    + {sug}
+                    <Plus className="w-3 h-3" />
+                    <span>Crear nueva</span>
                   </button>
-                ))}
+                )}
               </div>
-            )}
+
+              {/* Input para crear categoría rápida */}
+              {mostrarCrearInput && (
+                <div className="flex items-center gap-1.5 p-2 bg-rose-50/50 rounded-xl border border-rose-200">
+                  <input
+                    type="text"
+                    value={nuevaCategoriaInput}
+                    onChange={(e) => setNuevaCategoriaInput(e.target.value)}
+                    placeholder="Nombre de nueva categoría..."
+                    className="flex-1 px-2.5 py-1.5 bg-white border border-rose-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-hidden"
+                    maxLength={30}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCrearYNuevoSeleccionar(e);
+                      }
+                      if (e.key === 'Escape') setMostrarCrearInput(false);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCrearYNuevoSeleccionar}
+                    disabled={!nuevaCategoriaInput.trim()}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarCrearInput(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Pills para pulsar y alternar */}
+              <div className="flex flex-wrap items-center gap-1.5 max-h-28 overflow-y-auto p-1">
+                {categoriasDisponibles.map((cat) => {
+                  const isSelected = categoriasSeleccionadas.includes(cat);
+                  const isMax = categoriasSeleccionadas.length >= 3 && !isSelected;
+
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      disabled={isMax}
+                      onClick={() => handleToggleCategoria(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-rose-500 text-white shadow-2xs font-bold'
+                          : isMax
+                          ? 'bg-slate-100 text-slate-300 border border-slate-200 cursor-not-allowed'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:border-rose-300 hover:text-rose-600'
+                      }`}
+                    >
+                      {isSelected ? `✓ ${cat}` : `+ ${cat}`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Botones de acción */}

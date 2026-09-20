@@ -4,6 +4,7 @@ import { Producto } from '../../types';
 import { formatearEuros } from '../../utils/cashUtils';
 import { formatImageUrl } from '../../config/onedriveConfig';
 import { ProductFormModal } from './ProductFormModal';
+import { CategoriasModal } from './CategoriasModal';
 import {
   Package,
   Plus,
@@ -16,7 +17,8 @@ import {
   Sparkles,
   AlertTriangle,
   XCircle,
-  Tag
+  Tag,
+  Tags
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -32,22 +34,20 @@ export const InventarioView: React.FC = () => {
     setOrden,
     settings,
     isMockActive,
+    getCategoriasDisponibles,
   } = useDataStore();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [categoriasModalOpen, setCategoriasModalOpen] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [productoAEliminar, setProductoAEliminar] = useState<Producto | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [vistaModo, setVistaModo] = useState<'grid' | 'table'>('grid');
 
-  // Todas las etiquetas únicas
-  const todasLasEtiquetas = useMemo(() => {
-    const set = new Set<string>();
-    productos.forEach((p) => {
-      p.etiquetas?.forEach((e) => set.add(e));
-    });
-    return Array.from(set);
-  }, [productos]);
+  // Todas las categorías disponibles (de ajustes + asignadas a productos)
+  const todasLasCategorias = useMemo(() => {
+    return getCategoriasDisponibles();
+  }, [getCategoriasDisponibles, productos, settings]);
 
   // Filtrado y ordenación
   const productosFiltrados = useMemo(() => {
@@ -219,33 +219,45 @@ export const InventarioView: React.FC = () => {
           </div>
         </div>
 
-        {/* Etiquetas Pills */}
+        {/* Categorías Pills con Botón de Gestión */}
         <div className="flex flex-wrap items-center gap-1.5 pb-1">
           <button
             type="button"
             onClick={() => setFiltroEtiqueta(null)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[34px] touch-press ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[34px] touch-press cursor-pointer ${
               !filtroEtiqueta || filtroEtiqueta === 'Todos'
                 ? 'bg-rose-500 text-white shadow-2xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Todos ({productos.length})
+            Todas ({productos.length})
           </button>
-          {todasLasEtiquetas.map((tag) => (
+          {todasLasCategorias.map((cat) => (
             <button
-              key={tag}
+              key={cat}
               type="button"
-              onClick={() => setFiltroEtiqueta(tag)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[34px] touch-press ${
-                filtroEtiqueta === tag
+              onClick={() => setFiltroEtiqueta(cat)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[34px] touch-press cursor-pointer ${
+                filtroEtiqueta === cat
                   ? 'bg-rose-500 text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {tag}
+              {cat}
             </button>
           ))}
+
+          {/* Botón rápido para Crear / Gestionar Categorías */}
+          <button
+            type="button"
+            id="btn-gestionar-categorias-inventario"
+            onClick={() => setCategoriasModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all whitespace-nowrap min-h-[34px] touch-press cursor-pointer flex items-center gap-1.5 ml-auto sm:ml-1"
+            title="Crear o administrar categorías globales"
+          >
+            <Tags className="w-3.5 h-3.5" />
+            <span>+ Categorías</span>
+          </button>
         </div>
       </div>
 
@@ -502,6 +514,12 @@ export const InventarioView: React.FC = () => {
         isOpen={modalOpen}
         productoEditar={productoSeleccionado}
         onClose={() => setModalOpen(false)}
+      />
+
+      {/* Modal Central de Gestión de Categorías */}
+      <CategoriasModal
+        isOpen={categoriasModalOpen}
+        onClose={() => setCategoriasModalOpen(false)}
       />
 
       {/* Modal de Confirmación de Eliminación In-App */}

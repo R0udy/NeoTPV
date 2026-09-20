@@ -3,6 +3,7 @@ import { useDataStore } from '../../store/useDataStore';
 import { AppSettings } from '../../types';
 import { isFirebaseConfigured, testFirebaseConnection, firebaseConfig } from '../../config/firebaseConfig';
 import { onedriveConfig } from '../../config/onedriveConfig';
+import { CategoriasModal } from '../inventario/CategoriasModal';
 import {
   Settings,
   AlertTriangle,
@@ -22,6 +23,10 @@ import {
   RefreshCw,
   HelpCircle,
   Trash2,
+  Tags,
+  Plus,
+  Edit2,
+  Layers
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -30,16 +35,25 @@ export const AdminView: React.FC = () => {
     settings,
     actualizarSettings,
     alertas,
+    productos,
     isMockActive,
     setMockMode,
     reiniciarDatosMock,
     purgarMockDeFirebase,
+    getCategoriasDisponibles,
+    crearCategoria,
+    eliminarCategoria
   } = useDataStore();
 
   const [nombreTienda, setNombreTienda] = useState(settings.nombreTienda || 'KiraKira Stand & Jewels');
   const [umbralStock, setUmbralStock] = useState(settings.umbralStockBajo || 5);
   const [umbralCaja, setUmbralCaja] = useState(settings.umbralMonedasBajas || 5);
   const [isSaving, setIsSaving] = useState(false);
+  const [modalCategoriasOpen, setModalCategoriasOpen] = useState(false);
+  const [nuevaCatAdmin, setNuevaCatAdmin] = useState('');
+  const [isAddingCat, setIsAddingCat] = useState(false);
+
+  const categorias = getCategoriasDisponibles();
 
   // Estado del test de conexión a Firebase
   const [isTestingFirebase, setIsTestingFirebase] = useState(false);
@@ -324,7 +338,99 @@ export const AdminView: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= SECCIÓN 3: ESTADO TÉCNICO DE INTEGRACIONES ================= */}
+      {/* ================= SECCIÓN 3: GESTIÓN DE CATEGORÍAS GLOBALES ================= */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-[#F0EBE3] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <Tags className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold font-display text-slate-800">
+                Categorías Globales del Catálogo ({categorias.length})
+              </h2>
+              <p className="text-xs text-slate-400 font-medium">
+                Persistidas en la base de datos para organizar productos en inventario y TPV
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            id="btn-abrir-gestor-categorias-admin"
+            onClick={() => setModalCategoriasOpen(true)}
+            className="py-2.5 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-xs touch-press cursor-pointer flex items-center justify-center gap-1.5 transition-colors shrink-0"
+          >
+            <Tags className="w-4 h-4" />
+            <span>Abrir Gestor Central</span>
+          </button>
+        </div>
+
+        {/* Formulario rápido de adición de categoría en Admin */}
+        <div className="p-4 bg-[#F8F9FA] rounded-xl border border-[#F0EBE3] space-y-2">
+          <label className="block text-xs font-bold text-slate-700">
+            Añadir Nueva Categoría al Catálogo
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              id="input-admin-nueva-categoria"
+              value={nuevaCatAdmin}
+              onChange={(e) => setNuevaCatAdmin(e.target.value)}
+              placeholder="Ej: Joyería Fina, Stickers Holográficos..."
+              className="flex-1 px-3 py-2 bg-white border border-[#F0EBE3] rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-rose-400 focus:outline-hidden"
+              maxLength={30}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (!nuevaCatAdmin.trim()) return;
+                  setIsAddingCat(true);
+                  await crearCategoria(nuevaCatAdmin.trim());
+                  setNuevaCatAdmin('');
+                  setIsAddingCat(false);
+                }
+              }}
+            />
+            <button
+              type="button"
+              id="btn-admin-crear-categoria"
+              disabled={!nuevaCatAdmin.trim() || isAddingCat}
+              onClick={async () => {
+                if (!nuevaCatAdmin.trim()) return;
+                setIsAddingCat(true);
+                await crearCategoria(nuevaCatAdmin.trim());
+                setNuevaCatAdmin('');
+                setIsAddingCat(false);
+              }}
+              className="py-2 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white font-bold text-xs shadow-2xs touch-press cursor-pointer flex items-center gap-1.5 transition-colors shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Añadir</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Visualización de Categorías */}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {categorias.map((cat) => {
+            const count = productos.filter((p) => p.etiquetas && p.etiquetas.includes(cat)).length;
+
+            return (
+              <div
+                key={cat}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-700 shadow-2xs"
+              >
+                <span className="font-bold text-slate-900">{cat}</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-500 font-bold">
+                  {count} {count === 1 ? 'prod' : 'prods'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ================= SECCIÓN 4: ESTADO TÉCNICO DE INTEGRACIONES ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Firebase */}
         <div className="bg-white rounded-2xl p-5 border border-[#F0EBE3] shadow-xs space-y-3">
@@ -438,6 +544,12 @@ export const AdminView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal Central de Gestión de Categorías */}
+      <CategoriasModal
+        isOpen={modalCategoriasOpen}
+        onClose={() => setModalCategoriasOpen(false)}
+      />
     </div>
   );
 };

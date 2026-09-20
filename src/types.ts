@@ -112,6 +112,7 @@ export interface AppSettings {
   umbralMonedasBajas: number;
   nombreTienda: string;
   autoImprimirTicket: boolean;
+  categorias?: string[];
 }
 
 export type TipoAlerta = 'stock_bajo' | 'caja_baja' | 'sin_imagen' | 'margen_negativo';

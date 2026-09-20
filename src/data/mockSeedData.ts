@@ -326,12 +326,29 @@ export const INITIAL_SALES: Venta[] = [
   }
 ];
 
+export const DEFAULT_CATEGORIAS: string[] = [
+  'Joyería',
+  'Anime',
+  'K-Pop',
+  'Merch',
+  'Pins',
+  'Llaveros',
+  'Gótico',
+  'Japón',
+  'Gaming',
+  'Fantasía',
+  'Naruto',
+  'Ghibli',
+  'Floral'
+];
+
 export const INITIAL_SETTINGS: AppSettings = {
   mockDataEnabled: true,
   umbralStockBajo: 5,
   umbralMonedasBajas: 5,
   nombreTienda: 'KiraKira Jewels & Merch',
-  autoImprimirTicket: false
+  autoImprimirTicket: false,
+  categorias: DEFAULT_CATEGORIAS
 };
 
 export const MOCK_PRODUCT_IDS = new Set<string>(INITIAL_PRODUCTS.map((p) => p.id));
